@@ -87,3 +87,67 @@ class ActionLogSerializer(serializers.ModelSerializer):
                 except ModelClass.DoesNotExist:
                     return f"Object ({obj.content_type.model}) ID: {obj.object_id} (Delete)"
         return None
+
+class SimplePalletForGroupingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pallet
+        # Solo los campos que quieres mostrar para cada pallet individual
+        fields = ['id', 'name', 'in_date', 'is_out', 'defective']
+
+class LotWithPalletsInWarehouseSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    # Lista de pallets (activos y no defectuosos) en este almacén para este lote
+    pallets_active = serializers.SerializerMethodField()
+    # Conteo de pallets no defectuosos (y activos)
+    count_pallets_ok = serializers.SerializerMethodField()
+    # Conteo de pallets defectuosos (pero activos)
+    count_pallets_defective = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Lot
+        fields = [
+            'id', 'name', 'product', 'product_name',
+            'pallets_active', # La lista de pallets buenos
+            'count_pallets_ok',
+            'count_pallets_defective'
+        ]
+
+    def _get_filtered_pallets_for_lot_in_warehouse(self, lot_instance, warehouse_instance):
+        """
+        Helper interno para obtener los pallets de un lote en un almacén específico.
+        Aquí asumimos que queremos pallets que NO han salido (is_out=False).
+        """
+        if not warehouse_instance:
+            return Pallet.objects.none() # Devuelve un queryset vacío si no hay almacén
+
+        # Si usaste 'to_attr' en prefetch_related en la vista, podrías intentar accederlo aquí
+        # if hasattr(lot_instance, 'prefetched_pallets_for_warehouse_and_lot'):
+        #     return lot_instance.prefetched_pallets_for_warehouse_and_lot
+
+        # Si no, filtramos aquí. El prefetch_related general en la vista ayudará.
+        return Pallet.objects.filter(
+            lots=lot_instance,
+            warehouse=warehouse_instance,
+            is_out=False # Condición: Pallets que no han salido (activos en almacén)
+        )
+
+    def get_pallets_active(self, obj):
+        # 'obj' es la instancia del Lote
+        warehouse = self.context.get('warehouse')
+        all_pallets_for_lot_in_warehouse = self._get_filtered_pallets_for_lot_in_warehouse(obj, warehouse)
+        
+        # Filtramos para los que NO son defectuosos para esta lista específica
+        active_non_defective_pallets = all_pallets_for_lot_in_warehouse.filter(defective=False).order_by('create_date')
+        return SimplePalletForGroupingSerializer(active_non_defective_pallets, many=True).data
+
+    def get_count_pallets_ok(self, obj):
+        # 'obj' es la instancia del Lote
+        warehouse = self.context.get('warehouse')
+        all_pallets_for_lot_in_warehouse = self._get_filtered_pallets_for_lot_in_warehouse(obj, warehouse)
+        return all_pallets_for_lot_in_warehouse.filter(defective=False).count()
+
+    def get_count_pallets_defective(self, obj):
+        # 'obj' es la instancia del Lote
+        warehouse = self.context.get('warehouse')
+        all_pallets_for_lot_in_warehouse = self._get_filtered_pallets_for_lot_in_warehouse(obj, warehouse)
+        return all_pallets_for_lot_in_warehouse.filter(defective=True).count()

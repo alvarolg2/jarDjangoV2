@@ -1,12 +1,16 @@
 
+from argparse import Action
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Prefetch
 from .models import Product, Lot, Warehouse, Pallet, PalletLot, ActionLog
 from .serializers import (
     ProductSerializer, LotSerializer, WarehouseSerializer,
-    PalletSerializer, PalletLotSerializer, ActionLogSerializer
+    PalletSerializer, PalletLotSerializer, ActionLogSerializer,
+    LotWithPalletsInWarehouseSerializer
 )
 
 def log_action(user, action_type, instance, description=""):
@@ -92,6 +96,28 @@ class WarehouseViewSet(viewsets.ModelViewSet):
             content_type=content_type_instance, object_id=object_id_instance,
             description=description
         )
+    @action(detail=True, methods=['get'], url_path='pallets-by-lot')
+    def pallets_grouped_by_lot(self, request, pk=None):
+        warehouse = self.get_object()
+        relevant_pallets_prefetch = Prefetch(
+            'pallets',
+            queryset=Pallet.objects.filter(warehouse=warehouse, is_out=False),
+            to_attr='cached_pallets_in_warehouse'
+        )
+
+        lots_in_warehouse = Lot.objects.filter(
+            pallets__warehouse=warehouse,
+            pallets__is_out=False
+        ).distinct().prefetch_related(
+            relevant_pallets_prefetch
+        ).order_by('name')
+
+        serializer = LotWithPalletsInWarehouseSerializer(
+            lots_in_warehouse,
+            many=True,
+            context={'request': request, 'warehouse': warehouse}
+        )
+        return Response(serializer.data)
 
 class PalletViewSet(viewsets.ModelViewSet):
     queryset = Pallet.objects.all().order_by('-create_date')
