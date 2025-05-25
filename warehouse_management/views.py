@@ -99,21 +99,41 @@ class WarehouseViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='pallets-by-lot')
     def pallets_grouped_by_lot(self, request, pk=None):
         warehouse = self.get_object()
-        relevant_pallets_prefetch = Prefetch(
-            'pallets',
-            queryset=Pallet.objects.filter(warehouse=warehouse, is_out=False),
-            to_attr='cached_pallets_in_warehouse'
+
+        relevant_pallets_qs = Pallet.objects.filter(
+            warehouse=warehouse,
+            is_out=False,
+            defective=False
         )
 
-        lots_in_warehouse = Lot.objects.filter(
+        lots_in_warehouse_qs = Lot.objects.filter(
             pallets__warehouse=warehouse,
-            pallets__is_out=False
+            pallets__is_out=False,
+            pallets__defective=False 
         ).distinct().prefetch_related(
-            relevant_pallets_prefetch
+            Prefetch('pallets', queryset=relevant_pallets_qs, to_attr='cached_pallets_for_view')
         ).order_by('name')
+        # pagination
+        paginator = self.pagination_class() if self.pagination_class else None
 
+        if paginator:
+            page = paginator.paginate_queryset(lots_in_warehouse_qs, request, view=self)
+            if page is not None: 
+                serializer = LotWithPalletsInWarehouseSerializer(
+                    page,
+                    many=True,
+                    context={'request': request, 'warehouse': warehouse}
+                )
+                return paginator.get_paginated_response(serializer.data)
+            serializer_data = LotWithPalletsInWarehouseSerializer(
+                [], 
+                many=True,
+                context={'request': request, 'warehouse': warehouse}
+            ).data
+            return paginator.get_paginated_response(serializer_data)
+        
         serializer = LotWithPalletsInWarehouseSerializer(
-            lots_in_warehouse,
+            lots_in_warehouse_qs,
             many=True,
             context={'request': request, 'warehouse': warehouse}
         )
