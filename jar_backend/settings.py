@@ -25,24 +25,13 @@ SECRET_KEY = 'django-insecure--jl==8apb-kd8@1_lz@o90m32r&fhnpz^tbi+ks+a_jaigc73i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.localhost'] # '.localhost' permite tenant.localhost
 
+#ALLOWED_HOSTS = ['.miapp.com', 'miapp.com'] # El punto al inicio es un comodín para subdominios
 
-# Application definition
-
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'rest_framework',
-    'rest_framework.authtoken',
-    'warehouse_management',
-]
 
 MIDDLEWARE = [
+    'django_tenants.middleware.main.TenantMainMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -53,6 +42,35 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'jar_backend.urls'
+
+SHARED_APPS = (
+    'django_tenants',  # Aplicación principal de django-tenants
+    'tenants', # La app donde definirás tu modelo Tenant (ver más abajo)
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'warehouse_management',
+)
+
+# TENANT_APPS son las que se instalarán en el esquema de cada tenant
+TENANT_APPS = (
+    # Aplicaciones específicas del tenant:
+    'warehouse_management', # Tu aplicación principal de negocio
+    # Otras apps que quieras por tenant
+    # 'django.contrib.contenttypes', # A veces necesario aquí también si los modelos tenant-aware lo usan
+)
+
+# INSTALLED_APPS se construye a partir de SHARED_APPS y TENANT_APPS
+INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
+
+# --- Modelo Tenant y Dominio ---
+TENANT_MODEL = "tenants.Tenant"  # app_label.ModelName (ej. 'tu_app_tenant.Client')
+TENANT_DOMAIN_MODEL = "tenants.Domain"  # app_label.ModelName (ej. 'tu_app_tenant.Domain')
 
 TEMPLATES = [
     {
@@ -77,10 +95,18 @@ WSGI_APPLICATION = 'jar_backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django_tenants.postgresql_backend',
+        'NAME': 'jar_multitenant_db',
+        'USER': 'postgres',
+        'PASSWORD': 'fhr578mnl',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
+
+DATABASE_ROUTERS = (
+    'django_tenants.routers.TenantSyncRouter',
+)
 
 
 # Password validation
