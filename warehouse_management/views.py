@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Prefetch
 from .models import Product, Lot, Warehouse, Pallet, PalletLot, ActionLog
+from .permissions import IsMemberOfCurrentTenant
 from .serializers import (
     ProductSerializer, LotSerializer, WarehouseSerializer,
     PalletSerializer, PalletLotSerializer, ActionLogSerializer,
@@ -25,7 +26,7 @@ def log_action(user, action_type, instance, description=""):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().order_by('-create_date')
     serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsMemberOfCurrentTenant]
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -52,7 +53,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 class LotViewSet(viewsets.ModelViewSet):
     queryset = Lot.objects.all().order_by('-create_date')
     serializer_class = LotSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsMemberOfCurrentTenant]
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -76,7 +77,7 @@ class LotViewSet(viewsets.ModelViewSet):
 class WarehouseViewSet(viewsets.ModelViewSet):
     queryset = Warehouse.objects.all().order_by('-create_date')
     serializer_class = WarehouseSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsMemberOfCurrentTenant]
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -142,7 +143,7 @@ class WarehouseViewSet(viewsets.ModelViewSet):
 class PalletViewSet(viewsets.ModelViewSet):
     queryset = Pallet.objects.all().order_by('-create_date')
     serializer_class = PalletSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsMemberOfCurrentTenant]
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -172,4 +173,4 @@ class PalletViewSet(viewsets.ModelViewSet):
 class ActionLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ActionLog.objects.all().order_by('-timestamp')
     serializer_class = ActionLogSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsMemberOfCurrentTenant]
