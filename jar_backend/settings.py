@@ -9,25 +9,20 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
+from dotenv import load_dotenv
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+dotenv_path = os.path.join(BASE_DIR, '.env')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
 
+SECRET_KEY = os.getenv('SECRET_KEY', 'una_llave_secreta_por_defecto_insegura_si_no_hay_env_var')
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 't')
+ALLOWED_HOSTS_STRING = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,.localhost')
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_STRING.split(',')]
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--jl==8apb-kd8@1_lz@o90m32r&fhnpz^tbi+ks+a_jaigc73i'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.localhost'] # '.localhost' permite tenant.localhost
-
-#ALLOWED_HOSTS = ['.miapp.com', 'miapp.com'] # El punto al inicio es un comodín para subdominios
 
 
 MIDDLEWARE = [
@@ -44,8 +39,8 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'jar_backend.urls'
 
 SHARED_APPS = (
-    'django_tenants',  # Aplicación principal de django-tenants
-    'tenants', # La app donde definirás tu modelo Tenant (ver más abajo)
+    'django_tenants',
+    'tenants',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -57,28 +52,28 @@ SHARED_APPS = (
     'warehouse_management',
 )
 
-# TENANT_APPS son las que se instalarán en el esquema de cada tenant
 TENANT_APPS = (
-    # Aplicaciones específicas del tenant:
-    'warehouse_management', # Tu aplicación principal de negocio
-    # Otras apps que quieras por tenant
-    # 'django.contrib.contenttypes', # A veces necesario aquí también si los modelos tenant-aware lo usan
+    'django.contrib.contenttypes',
+    'django.contrib.auth',
+    'django.contrib.admin',
+    'warehouse_management',
+    'rest_framework',
+    'rest_framework.authtoken',
 )
 
-# INSTALLED_APPS se construye a partir de SHARED_APPS y TENANT_APPS
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 
-# --- Modelo Tenant y Dominio ---
-TENANT_MODEL = "tenants.Tenant"  # app_label.ModelName (ej. 'tu_app_tenant.Client')
-TENANT_DOMAIN_MODEL = "tenants.Domain"  # app_label.ModelName (ej. 'tu_app_tenant.Domain')
+TENANT_MODEL = "tenants.Tenant"
+TENANT_DOMAIN_MODEL = "tenants.Domain"
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -91,16 +86,16 @@ WSGI_APPLICATION = 'jar_backend.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+# https://docs.djangoproject.com/en/stable/ref/settings/#databases
+# ----> MODIFICADO: Leer configuración de la base de datos desde variables de entorno <----
 DATABASES = {
     'default': {
-        'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': 'jar_multitenant_db',
-        'USER': 'postgres',
-        'PASSWORD': 'fhr578mnl',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': os.getenv('DB_ENGINE', 'django_tenants.postgresql_backend'),
+        'NAME': os.getenv('DB_NAME', 'jar_multitenant_db_default_name'), 
+        'USER': os.getenv('DB_USER', 'postgres_default_user'),       
+        'PASSWORD': os.getenv('DB_PASSWORD', 'default_password'), 
+        'HOST': os.getenv('DB_HOST', 'localhost'),                
+        'PORT': os.getenv('DB_PORT', '5432'),          
     }
 }
 
@@ -110,8 +105,7 @@ DATABASE_ROUTERS = (
 
 
 # Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
+# https://docs.djangoproject.com/en/stable/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -130,24 +124,22 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
+LANGUAGE_CODE = os.getenv('LANGUAGE_CODE', 'en-us')
+TIME_ZONE = os.getenv('TIME_ZONE', 'UTC')
 USE_I18N = True
-
 USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+# https://docs.djangoproject.com/en/stable/howto/static-files/
+STATIC_URL = '/static/' 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles_collected') 
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles') 
 
-STATIC_URL = 'static/'
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
+# https://docs.djangoproject.com/en/stable/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
