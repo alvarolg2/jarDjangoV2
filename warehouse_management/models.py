@@ -2,14 +2,40 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-class Product(models.Model):
+
+class SoftDeleteManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
+class SoftDeleteModel(models.Model):
+    deleted_at = models.DateTimeField(null=True, blank=True, default=None, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    objects = SoftDeleteManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        abstract = True
+
+    def soft_delete(self):
+        self.deleted_at = timezone.now()
+        self.save(update_fields=['deleted_at'])
+
+    def restore(self):
+        self.deleted_at = None
+        self.save(update_fields=['deleted_at'])
+
+
+class Product(SoftDeleteModel):
     name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(null=True, blank=True)
     create_date = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return self.name
 
-class Lot(models.Model):
+class Lot(SoftDeleteModel):
     name = models.CharField(max_length=255, unique=True) 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='lots')
     create_date = models.DateTimeField(default=timezone.now)
@@ -17,7 +43,7 @@ class Lot(models.Model):
     def __str__(self):
         return f"{self.name} (Product: {self.product.name})"
 
-class Warehouse(models.Model):
+class Warehouse(SoftDeleteModel):
     name = models.CharField(max_length=255, unique=True)
     address = models.TextField(blank=True, null=True)
     create_date = models.DateTimeField(default=timezone.now)
@@ -25,7 +51,7 @@ class Warehouse(models.Model):
     def __str__(self):
         return self.name
 
-class Pallet(models.Model):
+class Pallet(SoftDeleteModel):
     name = models.CharField(max_length=255, unique=True)
     warehouse = models.ForeignKey(Warehouse, on_delete=models.SET_NULL, null=True, blank=True, related_name='pallets')
     lots = models.ManyToManyField(Lot, through='PalletLot', related_name='pallets')

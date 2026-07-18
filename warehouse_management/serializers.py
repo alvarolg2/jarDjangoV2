@@ -19,7 +19,7 @@ class ContentTypeSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name', 'create_date']
+        fields = ['id', 'name', 'description', 'create_date']
         read_only_fields = ['create_date']
 
 class LotSerializer(serializers.ModelSerializer):
@@ -151,3 +151,37 @@ class LotWithPalletsInWarehouseSerializer(serializers.ModelSerializer):
         warehouse = self.context.get('warehouse')
         all_pallets_for_lot_in_warehouse = self._get_filtered_pallets_for_lot_in_warehouse(obj, warehouse)
         return all_pallets_for_lot_in_warehouse.filter(defective=True).count()
+
+
+class SyncProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'description', 'create_date', 'updated_at', 'deleted_at']
+
+class SyncWarehouseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Warehouse
+        fields = ['id', 'name', 'address', 'create_date', 'updated_at', 'deleted_at']
+
+class SyncLotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lot
+        fields = ['id', 'name', 'product', 'create_date', 'updated_at', 'deleted_at']
+
+class SyncPalletSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pallet
+        fields = ['id', 'name', 'warehouse', 'create_date', 'updated_at', 'in_date', 'out_date', 'is_out', 'defective', 'deleted_at']
+
+class SyncPalletLotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PalletLot
+        fields = ['id', 'pallet', 'lot']
+
+class SyncPayloadSerializer(serializers.Serializer):
+    products = SyncProductSerializer(many=True, required=False, default=[])
+    warehouses = SyncWarehouseSerializer(many=True, required=False, default=[])
+    lots = SyncLotSerializer(many=True, required=False, default=[])
+    pallets = SyncPalletSerializer(many=True, required=False, default=[])
+    pallet_lots = SyncPalletLotSerializer(many=True, required=False, default=[])
+    last_sync = serializers.DateTimeField(required=False, allow_null=True, default=None)
