@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     ProductViewSet, LotViewSet, WarehouseViewSet,
-    PalletViewSet, ActionLogViewSet
+    PalletViewSet, ActionLogViewSet, SyncView
 )
 
 router = DefaultRouter()
@@ -14,4 +14,5 @@ router.register(r'action-logs', ActionLogViewSet, basename='actionlog')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('sync/', SyncView.as_view(), name='sync'),
 ]
